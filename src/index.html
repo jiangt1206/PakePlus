@@ -1,22 +1,222 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能家居管理系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="offlineIndicator" class="offline-indicator">
+        <i class="fas fa-wifi-slash"></i> 网络连接已断开，请检查网络设置
+    </div>
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div class="header-left">
+                    <button class="back-btn hidden" id="backBtn" onclick="showListView()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <h1 class="app-title" id="appTitle">智能家居</h1>
+                </div>
+                <div class="proxy-status" onclick="openProxyConfigModal()">
+                    <div id="proxyIndicator" class="proxy-indicator"></div>
+                    <span id="proxyStatusText" class="proxy-text">代理状态</span>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span id="totalDevices" class="stat-number">0</span>
+                    <span class="stat-label">设备总数</span>
+                </div>
+                <div class="stat-item">
+                    <span id="onlineDevices" class="stat-number">0</span>
+                    <span class="stat-label">在线设备</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <form class="row" id="greet-form">
-                <input id="greet-input" placeholder="Enter a name..." />
-                <button type="submit">Greet</button>
-            </form>
-            <p id="greet-msg"></p>
-        </main>
-    </body>
+    <div class="main-content">
+        <div id="listView" class="list-view">
+            <div id="devicesContainer" class="devices-list"></div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-icon"><i class="fas fa-home"></i></div>
+                <h3 class="empty-title">暂无设备</h3>
+                <p>点击右下角按钮添加您的第一个智能设备</p>
+            </div>
+
+            <div id="errorState" class="error-state" style="display: none;">
+                <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <h3 class="error-title">加载失败</h3>
+                <p class="error-message" id="errorMessage">无法加载设备列表，请检查网络连接</p>
+                <button class="retry-btn" onclick="retryLoadDevices()">重试</button>
+            </div>
+        </div>
+
+        <div id="detailView" class="detail-view">
+            <div class="device-detail-card">
+                <div class="device-detail-header">
+                    <button class="detail-back-btn" onclick="showListView()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="detail-header-actions">
+                        <button class="detail-action-btn edit-btn" id="detailEditBtn">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="detail-action-btn delete-btn" id="detailDeleteBtn">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="device-detail-content">
+                        <div class="device-detail-avatar" id="detailAvatar"><i class="fas fa-home"></i></div>
+                        <h2 class="device-detail-name" id="detailName">设备名称</h2>
+                        <div class="device-status-container">
+                            <span class="device-detail-status" id="detailStatus">离线</span>
+                            <button class="detail-refresh-btn" id="detailRefreshBtn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <!-- [新增] 添加用于显示更新时间的元素 -->
+                            <span class="last-updated-text" id="lastUpdatedText"></span> 
+                        </div>
+                        <div class="device-info-badges" id="deviceInfoBadges"></div>
+                    </div>
+                </div>
+                
+                <div class="device-detail-body">
+                    <div class="controls-section">
+                        <h3 class="section-title">设备控制</h3>
+                        <div class="controls-grid" id="detailControls"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fab-container">
+        <button class="fab" onclick="openAddDeviceModal()">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+
+    <div id="deviceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">添加新设备</h2>
+                <button class="close-btn" onclick="closeDeviceModal()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="deviceForm">
+                    <input type="hidden" id="deviceId" name="device_id">
+                    
+                    <div class="form-group">
+                        <label class="form-label">设备名称</label>
+                        <input type="text" class="form-input" id="deviceName" name="name" placeholder="例如：客厅台灯" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">设备IP地址</label>
+                        <input type="text" class="form-input" id="deviceIp" name="esp_ip" placeholder="192.168.0.107" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">端口号</label>
+                        <input type="number" class="form-input" id="devicePort" name="esp_port" value="80" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">请求超时(秒)</label>
+                        <input type="number" class="form-input" id="deviceTimeout" name="timeout" value="3" required>
+                    </div>
+
+                    <div class="commands-section">
+                        <h3>设备命令</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+                            默认包含 /status 命令用于获取设备状态
+                        </p>
+                        
+                        <div id="commandsList">
+                            <div class="command-item">
+                                <div class="command-inputs">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label class="form-label">命令名称</label>
+                                        <input type="text" class="form-input" name="command_name" value="设备状态" readonly>
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label class="form-label">路径</label>
+                                        <input type="text" class="form-input" name="command_path" value="/status" readonly>
+                                    </div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span style="color: var(--text-secondary); font-size: 0.75rem;">默认命令</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="add-command-btn" onclick="addCommandField()">
+                            <i class="fas fa-plus"></i> 添加自定义命令
+                        </button>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeDeviceModal()">取消</button>
+                        <button type="submit" id="submitBtn" class="btn-primary">添加设备</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="proxyConfigModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">代理服务器配置</h2>
+                <button class="close-btn" onclick="closeProxyConfigModal()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="proxyConfigForm">
+                    <div class="form-group">
+                        <label class="form-label">代理服务器地址</label>
+                        <input type="url" class="form-input" id="proxyUrl" name="proxy_url" 
+                               placeholder="http://192.168.0.100:8000/forward" required>
+                        <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem; display: block;">
+                            代理服务器将转发请求到ESP设备
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">连接超时(秒)</label>
+                        <input type="number" class="form-input" name="proxy_timeout" value="10" min="1" max="60" required>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeProxyConfigModal()">取消</button>
+                        <button type="submit" class="btn-primary">保存配置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmDialog" class="confirm-dialog">
+        <div class="confirm-content">
+            <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="confirm-title">确认删除</h3>
+            <p class="confirm-message" id="confirmMessage">确定要删除这个设备吗？此操作无法撤销。</p>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeConfirmDialog()">取消</button>
+                <button class="btn-primary delete-btn" id="confirmDeleteBtn">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
 </html>
